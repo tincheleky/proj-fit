@@ -19,6 +19,7 @@ import android.hardware.SensorEventListener;
 import android.hardware.SensorManager;
 import android.location.Location;
 import android.location.LocationManager;
+import android.os.CountDownTimer;
 import android.os.Handler;
 import android.os.IBinder;
 import android.os.Message;
@@ -69,6 +70,8 @@ import com.tin.proj_fit.storage.LocationData;
 import com.tin.proj_fit.storage.LocationHistoryContract;
 import com.tin.proj_fit.storage.LocationHistoryDbHelper;
 
+import java.text.DecimalFormat;
+import java.text.NumberFormat;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.LinkedList;
@@ -80,6 +83,7 @@ public class FitnessActivity extends FragmentActivity implements
         LocationListener,
         SensorEventListener{
     public static User user;
+    public static final double STEP_TO_KM = 0.000762;
 
     private GoogleMap mMap;
     private FusedLocationProviderApi fusedLocationProviderApi = LocationServices.FusedLocationApi;
@@ -106,6 +110,7 @@ public class FitnessActivity extends FragmentActivity implements
     static String hms;
     static double curLat;
     static double curLng;
+    static double sessionDistance;
     static long curSecond = 0;
     boolean firstRun = false;
     ArrayList<LatLng> sessionLocation;
@@ -114,6 +119,10 @@ public class FitnessActivity extends FragmentActivity implements
     static SensorManager sensorManager;
     static Sensor stepCounterSensor;
     static SensorsHelper sensorsHelper;
+    static boolean isInit = false;
+    static int initStepCounts;
+    static NumberFormat decimalFormatter = new DecimalFormat("#0.000");
+    static CountDownTimer durationUpdateCountDownTimer;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -126,10 +135,8 @@ public class FitnessActivity extends FragmentActivity implements
         db = new LocationHistoryDbHelper(this);
         if(getResources().getConfiguration().orientation == Configuration.ORIENTATION_LANDSCAPE)
         {
-
             Toast.makeText(this, "Landscape", Toast.LENGTH_SHORT).show();
             setupChart();
-
         }
         else
         {
@@ -149,6 +156,7 @@ public class FitnessActivity extends FragmentActivity implements
                 public void onClick(View view) {
                     if(tvStart.getText().toString().compareToIgnoreCase("Start") == 0)
                     {
+                        initSession();
                         sessionLocation = new ArrayList<LatLng>();
                         remoteConnection = new RemoteConnection();
                         Intent intent = new Intent(thisActivity, FitnessService.class);
@@ -164,7 +172,6 @@ public class FitnessActivity extends FragmentActivity implements
                         }
 
                         tvStart.setText("Stop");
-                        isInSession = true;
                         Toast.makeText(thisActivity, "Start training", Toast.LENGTH_SHORT).show();
 
 
@@ -190,7 +197,7 @@ public class FitnessActivity extends FragmentActivity implements
                     else
                     {
                         tvStart.setText("Start");
-                        isInSession = false;
+                        endSesstion();
                         Cursor cursor = db.getData();
                         int cnt = 0;
                         while(cursor.moveToNext())
@@ -235,11 +242,6 @@ public class FitnessActivity extends FragmentActivity implements
             tvDuration = (TextView) findViewById(R.id.duration_display);
             tvStepCounter = (TextView) findViewById(R.id.debug_step_counter);
 
-            if(curSecond > 1000)
-            {
-                tvDuration.setText(hms);
-            }
-
         }
     }
 
@@ -281,9 +283,17 @@ public class FitnessActivity extends FragmentActivity implements
 
         if(values.length > 0)
         {
-            value = (int) values[0];
-        }
+            if(!isInit) {
+                initStepCounts = (int) values[0];
+                isInit = true;
+            }
+            else
+            {
+                value = (int) values[0] - initStepCounts;
+                updateDistance(value);
+            }
 
+        }
         //Debug purpose
         if(sensor.getType() == Sensor.TYPE_STEP_COUNTER)
         {
@@ -300,8 +310,8 @@ public class FitnessActivity extends FragmentActivity implements
     @Override
     public void onLocationChanged(Location location)
     {
-
-        if(isInSession) {
+        if(isInSession)
+        {
             double lat = location.getLatitude();
             double lng = location.getLongitude();
             mMap.moveCamera(CameraUpdateFactory.newLatLngZoom(new LatLng(lat, lng), 18));
@@ -320,7 +330,6 @@ public class FitnessActivity extends FragmentActivity implements
                 e.printStackTrace();
             }
 
-            updateDistance(curLat, curLng, lat, lng);
             updateDuration();
             updatePath();
         }
@@ -331,21 +340,20 @@ public class FitnessActivity extends FragmentActivity implements
         PolylineOptions polylineOptions = new PolylineOptions();
         polylineOptions.addAll(sessionLocation);
         polylineOptions.color(Color.GREEN);
-        polylineOptions.width(5);
+        polylineOptions.width(10);
         mMap.clear();
         mMap.addPolyline(polylineOptions);
-//        LatLngBounds.Builder builder = new LatLngBounds.Builder();
-//        for (LatLng latLng : sessionLocation) {
-//            builder.include(latLng);
-//        }
-//        final LatLngBounds bounds = builder.build();
-//        CameraUpdate cu = CameraUpdateFactory.newLatLngBounds(bounds, 15);
-//        mMap.animateCamera(cu);
     }
 
-    private void updateDistance(double curLat, double curLng, double lat, double lng)
+    private void updateDistance(int steps)
     {
+        sessionDistance += steps * STEP_TO_KM;
 
+        if(tvDistance != null)
+        {
+            String temp = decimalFormatter.format(sessionDistance) + " km";
+            tvDistance.setText(temp);
+        }
     }
 
     private void updateDuration()
@@ -387,11 +395,12 @@ public class FitnessActivity extends FragmentActivity implements
     }
 
     @Override
-    protected void onResume() {
-
+    protected void onResume()
+    {
+        super.onResume();
         System.out.println("onResume Called");
         Toast.makeText(this, "onResume", Toast.LENGTH_SHORT).show();
-
+        setCurrentStatus();
         if(isInSession)
         {
             tvStart.setText("Stop");
@@ -408,7 +417,6 @@ public class FitnessActivity extends FragmentActivity implements
             tvStart.setText("Start");
         }
 
-        super.onResume();
     }
 
     @Override
@@ -419,7 +427,9 @@ public class FitnessActivity extends FragmentActivity implements
     }
 
     @Override
-    protected void onPause() {
+    protected void onPause()
+    {
+        super.onPause();
         System.out.println("onPauseCalled");
 
         if(isInSession)
@@ -432,7 +442,6 @@ public class FitnessActivity extends FragmentActivity implements
 
         }
 
-        super.onPause();
 
     }
 
@@ -601,6 +610,58 @@ public class FitnessActivity extends FragmentActivity implements
         mChart.getAxisRight().setEnabled(false);
 
         setData(45, 100);
+    }
+
+    private void initSession()
+    {
+        sessionDistance = 0.0;
+        isInit = false;
+        isInSession = true;
+        if(tvDistance != null)
+        {
+            tvDistance.setText("0.000 km");
+        }
+        if(tvDuration != null)
+        {
+            tvDuration.setText("00:00:00");
+        }
+        curSecond = 0;
+        durationUpdateCountDownTimer = new CountDownTimer(1000, 500) {
+            @Override
+            public void onTick(long l)
+            {
+
+            }
+
+            @Override
+            public void onFinish()
+            {
+                updateDuration();
+                durationUpdateCountDownTimer.start();
+            }
+        };
+        durationUpdateCountDownTimer.start();
+    }
+
+    private void endSesstion()
+    {
+        if(durationUpdateCountDownTimer != null)
+        {
+            durationUpdateCountDownTimer.cancel();
+        }
+        isInSession = false;
+    }
+
+    private void setCurrentStatus()
+    {
+        if(tvDistance != null)
+        {
+            tvDistance.setText(decimalFormatter.format(sessionDistance) + " km");
+        }
+        if(tvDuration != null)
+        {
+            tvDuration.setText(hms);
+        }
     }
 
 }
