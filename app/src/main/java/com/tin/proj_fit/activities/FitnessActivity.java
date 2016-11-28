@@ -11,29 +11,23 @@ import android.content.res.Configuration;
 import android.database.Cursor;
 import android.graphics.Color;
 import android.graphics.DashPathEffect;
-import android.graphics.Typeface;
-import android.graphics.drawable.Drawable;
 import android.hardware.Sensor;
 import android.hardware.SensorEvent;
 import android.hardware.SensorEventListener;
 import android.hardware.SensorManager;
 import android.location.Location;
+import android.location.LocationListener;
 import android.location.LocationManager;
+import android.os.Bundle;
 import android.os.CountDownTimer;
-import android.os.Handler;
 import android.os.IBinder;
-import android.os.Message;
 import android.os.RemoteException;
-import android.support.annotation.NonNull;
-import android.support.annotation.Nullable;
 import android.support.v4.app.ActivityCompat;
 import android.support.v4.app.FragmentActivity;
-import android.os.Bundle;
 import android.support.v4.content.ContextCompat;
 import android.view.View;
 import android.widget.TextView;
 import android.widget.Toast;
-import android.location.LocationListener;
 
 import com.github.mikephil.charting.charts.LineChart;
 import com.github.mikephil.charting.components.LimitLine;
@@ -43,39 +37,26 @@ import com.github.mikephil.charting.data.Entry;
 import com.github.mikephil.charting.data.LineData;
 import com.github.mikephil.charting.data.LineDataSet;
 import com.github.mikephil.charting.interfaces.datasets.ILineDataSet;
-import com.github.mikephil.charting.utils.Utils;
-import com.google.android.gms.common.ConnectionResult;
 import com.google.android.gms.common.api.GoogleApiClient;
-import com.google.android.gms.drive.realtime.internal.event.TextInsertedDetails;
 import com.google.android.gms.location.FusedLocationProviderApi;
 import com.google.android.gms.location.LocationServices;
-import com.google.android.gms.maps.CameraUpdate;
 import com.google.android.gms.maps.CameraUpdateFactory;
 import com.google.android.gms.maps.GoogleMap;
 import com.google.android.gms.maps.OnMapReadyCallback;
 import com.google.android.gms.maps.SupportMapFragment;
 import com.google.android.gms.maps.model.LatLng;
-import com.google.android.gms.maps.model.LatLngBounds;
-import com.google.android.gms.maps.model.Polyline;
 import com.google.android.gms.maps.model.PolylineOptions;
-import com.google.android.gms.vision.text.Text;
 import com.tin.proj_fit.AidlFitnessService;
-import com.tin.proj_fit.AidlFitnessServiceCallback;
 import com.tin.proj_fit.R;
 import com.tin.proj_fit.models.SensorsHelper;
 import com.tin.proj_fit.models.User;
 import com.tin.proj_fit.models.WorkoutSession;
 import com.tin.proj_fit.services.FitnessService;
-import com.tin.proj_fit.storage.LocationData;
-import com.tin.proj_fit.storage.LocationHistoryContract;
 import com.tin.proj_fit.storage.LocationHistoryDbHelper;
 
 import java.text.DecimalFormat;
 import java.text.NumberFormat;
-import java.text.SimpleDateFormat;
 import java.util.ArrayList;
-import java.util.LinkedList;
-import java.util.List;
 import java.util.concurrent.TimeUnit;
 
 public class FitnessActivity extends FragmentActivity implements
@@ -112,8 +93,7 @@ public class FitnessActivity extends FragmentActivity implements
     static double curLng;
     static double sessionDistance;
     static long curSecond = 0;
-    boolean firstRun = false;
-    ArrayList<LatLng> sessionLocation;
+    static ArrayList<LatLng> sessionLocation;
     SharedPreferences sharedPreferences;
 
     static SensorManager sensorManager;
@@ -121,8 +101,10 @@ public class FitnessActivity extends FragmentActivity implements
     static SensorsHelper sensorsHelper;
     static boolean isInit = false;
     static int initStepCounts;
+    static int curStepCounts;
     static NumberFormat decimalFormatter = new DecimalFormat("#0.000");
     static CountDownTimer durationUpdateCountDownTimer;
+    static Location curLocation;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -226,6 +208,7 @@ public class FitnessActivity extends FragmentActivity implements
                         {
                             System.out.println("Failed to unregister sensor");
                         }
+
                         try {
                             locationManager.removeUpdates(thisActivity);
                         }catch(SecurityException e){
@@ -277,27 +260,28 @@ public class FitnessActivity extends FragmentActivity implements
     @Override
     public void onSensorChanged(SensorEvent sensorEvent)
     {
-        Sensor sensor = sensorEvent.sensor;
-        float[] values = sensorEvent.values;
-        int value = -1;
+        if(isInSession) {
+            Sensor sensor = sensorEvent.sensor;
+            float[] values = sensorEvent.values;
+            int value = -1;
 
-        if(values.length > 0)
-        {
-            if(!isInit) {
-                initStepCounts = (int) values[0];
-                isInit = true;
-            }
-            else
-            {
-                value = (int) values[0] - initStepCounts;
-                updateDistance(value);
+            if (values.length > 0) {
+                if (!isInit) {
+                    initStepCounts = (int) values[0];
+                    isInit = true;
+                    curStepCounts = initStepCounts;
+                } else {
+                    value = (int) values[0] - curStepCounts;
+                    curStepCounts += value;
+                    updateDistance(value);
+                }
+
             }
 
-        }
-        //Debug purpose
-        if(sensor.getType() == Sensor.TYPE_STEP_COUNTER)
-        {
-            tvStepCounter.setText("Step Detected: " +  value);
+            //Debug purpose
+            if (sensor.getType() == Sensor.TYPE_STEP_COUNTER) {
+                tvStepCounter.setText("Step Detected: " + value);
+            }
         }
     }
 
@@ -310,6 +294,7 @@ public class FitnessActivity extends FragmentActivity implements
     @Override
     public void onLocationChanged(Location location)
     {
+        curLocation = location;
         if(isInSession)
         {
             double lat = location.getLatitude();
@@ -330,7 +315,6 @@ public class FitnessActivity extends FragmentActivity implements
                 e.printStackTrace();
             }
 
-            updateDuration();
             updatePath();
         }
     }
@@ -406,11 +390,11 @@ public class FitnessActivity extends FragmentActivity implements
             tvStart.setText("Stop");
             System.out.println("REGISTER SENSOR");
             //Get step sensor
-            sensorManager = (SensorManager) getSystemService(SENSOR_SERVICE);
-            stepCounterSensor = sensorManager.getDefaultSensor(Sensor.TYPE_STEP_COUNTER);
-
-            //Register sensor:
-            sensorManager.registerListener(thisActivity, stepCounterSensor, SensorManager.SENSOR_DELAY_FASTEST);
+//            sensorManager = (SensorManager) getSystemService(SENSOR_SERVICE);
+//            stepCounterSensor = sensorManager.getDefaultSensor(Sensor.TYPE_STEP_COUNTER);
+//
+//            //Register sensor:
+//            sensorManager.registerListener(thisActivity, stepCounterSensor, SensorManager.SENSOR_DELAY_FASTEST);
         }
         else
         {
@@ -432,15 +416,15 @@ public class FitnessActivity extends FragmentActivity implements
         super.onPause();
         System.out.println("onPauseCalled");
 
-        if(isInSession)
-        {
-            System.out.println("UNREGISTER SENSOR");
-            sensorManager.unregisterListener(this, stepCounterSensor);
-        }
-        else
-        {
-
-        }
+//        if(isInSession)
+//        {
+//            System.out.println("UNREGISTER SENSOR");
+//            sensorManager.unregisterListener(this, stepCounterSensor);
+//        }
+//        else
+//        {
+//
+//        }
 
 
     }
@@ -637,6 +621,7 @@ public class FitnessActivity extends FragmentActivity implements
             public void onFinish()
             {
                 updateDuration();
+                updateProfileActivity();
                 durationUpdateCountDownTimer.start();
             }
         };
@@ -661,6 +646,19 @@ public class FitnessActivity extends FragmentActivity implements
         if(tvDuration != null)
         {
             tvDuration.setText(hms);
+        }
+    }
+
+    private void updateProfileActivity()
+    {
+        if(ProfileActivity.tvAvgDistance != null)
+        {
+            ProfileActivity.tvAvgDistance.setText(decimalFormatter.format(sessionDistance) + " km");
+        }
+
+        if(ProfileActivity.tvAllTimeTime != null)
+        {
+            ProfileActivity.tvAllTimeTime.setText(hms);
         }
     }
 
