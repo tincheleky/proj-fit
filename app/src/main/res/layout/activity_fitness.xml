@@ -167,13 +167,24 @@
             />
 
         <TextView
+            android:id="@+id/debug_step_counter"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Step Counter"
+            android:textSize="15sp"
+            android:layout_above="@id/debug_long"
+            />
+
+        <TextView
             android:id="@+id/debug_rs"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:text="Remote Service"
             android:textSize="15sp"
-            android:layout_above="@id/debug_long"
+            android:layout_above="@id/debug_step_counter"
             />
+
+
 
 
     </RelativeLayout>

@@ -13,6 +13,10 @@ import android.graphics.Color;
 import android.graphics.DashPathEffect;
 import android.graphics.Typeface;
 import android.graphics.drawable.Drawable;
+import android.hardware.Sensor;
+import android.hardware.SensorEvent;
+import android.hardware.SensorEventListener;
+import android.hardware.SensorManager;
 import android.location.Location;
 import android.location.LocationManager;
 import android.os.Handler;
@@ -53,9 +57,11 @@ import com.google.android.gms.maps.model.LatLng;
 import com.google.android.gms.maps.model.LatLngBounds;
 import com.google.android.gms.maps.model.Polyline;
 import com.google.android.gms.maps.model.PolylineOptions;
+import com.google.android.gms.vision.text.Text;
 import com.tin.proj_fit.AidlFitnessService;
 import com.tin.proj_fit.AidlFitnessServiceCallback;
 import com.tin.proj_fit.R;
+import com.tin.proj_fit.models.SensorsHelper;
 import com.tin.proj_fit.models.User;
 import com.tin.proj_fit.models.WorkoutSession;
 import com.tin.proj_fit.services.FitnessService;
@@ -71,7 +77,8 @@ import java.util.concurrent.TimeUnit;
 
 public class FitnessActivity extends FragmentActivity implements
         OnMapReadyCallback,
-        LocationListener{
+        LocationListener,
+        SensorEventListener{
     public static User user;
 
     private GoogleMap mMap;
@@ -83,6 +90,7 @@ public class FitnessActivity extends FragmentActivity implements
     public static TextView tvLong;
     public static TextView tvDistance;
     public static TextView tvDuration;
+    public static TextView tvStepCounter;
     public static LineChart mChart;
 
     private TextView tvRS;
@@ -103,6 +111,9 @@ public class FitnessActivity extends FragmentActivity implements
     ArrayList<LatLng> sessionLocation;
     SharedPreferences sharedPreferences;
 
+    static SensorManager sensorManager;
+    static Sensor stepCounterSensor;
+    static SensorsHelper sensorsHelper;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -110,60 +121,14 @@ public class FitnessActivity extends FragmentActivity implements
         thisActivity = this;
         setContentView(R.layout.activity_fitness);
         checkPermission();
+        System.out.println("onCreate called");
 
         db = new LocationHistoryDbHelper(this);
         if(getResources().getConfiguration().orientation == Configuration.ORIENTATION_LANDSCAPE)
         {
-            Toast.makeText(thisActivity, "Landscape", Toast.LENGTH_SHORT).show();
-            mChart = (LineChart) findViewById(R.id.chart);
 
-            //SETUP CHART
-            // x-axis limit line
-            LimitLine llXAxis = new LimitLine(10f, "Index 10");
-            llXAxis.setLineWidth(4f);
-            llXAxis.enableDashedLine(10f, 10f, 0f);
-            llXAxis.setLabelPosition(LimitLine.LimitLabelPosition.RIGHT_BOTTOM);
-            llXAxis.setTextSize(10f);
-
-            XAxis xAxis = mChart.getXAxis();
-            xAxis.enableGridDashedLine(10f, 10f, 0f);
-            //xAxis.setValueFormatter(new MyCustomXAxisValueFormatter());
-            //xAxis.addLimitLine(llXAxis); // add x-axis limit line
-
-
-//            Typeface tf = Typeface.createFromAsset(getAssets(), "OpenSans-Regular.ttf");
-
-            LimitLine ll1 = new LimitLine(150f, "Upper Limit");
-            ll1.setLineWidth(4f);
-            ll1.enableDashedLine(10f, 10f, 0f);
-            ll1.setLabelPosition(LimitLine.LimitLabelPosition.RIGHT_TOP);
-            ll1.setTextSize(10f);
-//            ll1.setTypeface(tf);
-
-            LimitLine ll2 = new LimitLine(-30f, "Lower Limit");
-            ll2.setLineWidth(4f);
-            ll2.enableDashedLine(10f, 10f, 0f);
-            ll2.setLabelPosition(LimitLine.LimitLabelPosition.RIGHT_BOTTOM);
-            ll2.setTextSize(10f);
-//            ll2.setTypeface(tf);
-
-            YAxis leftAxis = mChart.getAxisLeft();
-            leftAxis.removeAllLimitLines(); // reset all limit lines to avoid overlapping lines
-            leftAxis.addLimitLine(ll1);
-            leftAxis.addLimitLine(ll2);
-            leftAxis.setAxisMaximum(200f);
-            leftAxis.setAxisMinimum(-50f);
-            //leftAxis.setYOffset(20f);
-            leftAxis.enableGridDashedLine(10f, 10f, 0f);
-            leftAxis.setDrawZeroLine(false);
-
-            // limit lines are drawn behind data (and not on top)
-            leftAxis.setDrawLimitLinesBehindData(true);
-
-            mChart.getAxisRight().setEnabled(false);
-
-            setData(45, 100);
-
+            Toast.makeText(this, "Landscape", Toast.LENGTH_SHORT).show();
+            setupChart();
 
         }
         else
@@ -201,6 +166,16 @@ public class FitnessActivity extends FragmentActivity implements
                         tvStart.setText("Stop");
                         isInSession = true;
                         Toast.makeText(thisActivity, "Start training", Toast.LENGTH_SHORT).show();
+
+
+                        //Get step sensor
+                        sensorManager = (SensorManager) getSystemService(SENSOR_SERVICE);
+                        stepCounterSensor = sensorManager.getDefaultSensor(Sensor.TYPE_STEP_COUNTER);
+                        sensorsHelper = new SensorsHelper(sensorManager, stepCounterSensor);
+
+                        //Register sensor:
+                        sensorManager.registerListener(thisActivity, stepCounterSensor, SensorManager.SENSOR_DELAY_FASTEST);
+
                         try {
                             locationManager.requestLocationUpdates(LocationManager.GPS_PROVIDER, 1000, 0.1f, thisActivity);
                             System.out.println("REGISTER LOCATION UPDATE");
@@ -233,6 +208,17 @@ public class FitnessActivity extends FragmentActivity implements
                             unbindService(remoteConnection);
                             remoteConnection = null;
                         }
+
+                        //UNREGISTER SENSORS, LOCATIONLISTENNER
+                        if(sensorsHelper.getSensorManager() != null) {
+                            System.out.println("Successful unregister sensor");
+                            if(stepCounterSensor !=  null)
+                                sensorsHelper.getSensorManager().unregisterListener(thisActivity, stepCounterSensor);
+                        }
+                        else
+                        {
+                            System.out.println("Failed to unregister sensor");
+                        }
                         try {
                             locationManager.removeUpdates(thisActivity);
                         }catch(SecurityException e){
@@ -247,6 +233,7 @@ public class FitnessActivity extends FragmentActivity implements
             tvRS = (TextView) findViewById(R.id.debug_rs);
             tvDistance = (TextView) findViewById(R.id.distance_display);
             tvDuration = (TextView) findViewById(R.id.duration_display);
+            tvStepCounter = (TextView) findViewById(R.id.debug_step_counter);
 
             if(curSecond > 1000)
             {
@@ -283,6 +270,31 @@ public class FitnessActivity extends FragmentActivity implements
         {
 
         }
+    }
+
+    @Override
+    public void onSensorChanged(SensorEvent sensorEvent)
+    {
+        Sensor sensor = sensorEvent.sensor;
+        float[] values = sensorEvent.values;
+        int value = -1;
+
+        if(values.length > 0)
+        {
+            value = (int) values[0];
+        }
+
+        //Debug purpose
+        if(sensor.getType() == Sensor.TYPE_STEP_COUNTER)
+        {
+            tvStepCounter.setText("Step Detected: " +  value);
+        }
+    }
+
+    @Override
+    public void onAccuracyChanged(Sensor sensor, int i)
+    {
+
     }
 
     @Override
@@ -348,6 +360,8 @@ public class FitnessActivity extends FragmentActivity implements
     }
 
 
+
+
     class RemoteConnection implements ServiceConnection {
 
         @Override
@@ -374,21 +388,52 @@ public class FitnessActivity extends FragmentActivity implements
 
     @Override
     protected void onResume() {
-        super.onResume();
+
+        System.out.println("onResume Called");
+        Toast.makeText(this, "onResume", Toast.LENGTH_SHORT).show();
 
         if(isInSession)
         {
             tvStart.setText("Stop");
+            System.out.println("REGISTER SENSOR");
+            //Get step sensor
+            sensorManager = (SensorManager) getSystemService(SENSOR_SERVICE);
+            stepCounterSensor = sensorManager.getDefaultSensor(Sensor.TYPE_STEP_COUNTER);
+
+            //Register sensor:
+            sensorManager.registerListener(thisActivity, stepCounterSensor, SensorManager.SENSOR_DELAY_FASTEST);
         }
         else
         {
             tvStart.setText("Start");
         }
+
+        super.onResume();
     }
 
     @Override
-    protected void onStop() {
+    protected void onStop()
+    {
         super.onStop();
+
+    }
+
+    @Override
+    protected void onPause() {
+        System.out.println("onPauseCalled");
+
+        if(isInSession)
+        {
+            System.out.println("UNREGISTER SENSOR");
+            sensorManager.unregisterListener(this, stepCounterSensor);
+        }
+        else
+        {
+
+        }
+
+        super.onPause();
+
     }
 
     @Override
@@ -504,6 +549,58 @@ public class FitnessActivity extends FragmentActivity implements
             // set data
             mChart.setData(data);
         }
+    }
+
+    private void setupChart()
+    {
+        mChart = (LineChart) findViewById(R.id.chart);
+
+        //SETUP CHART
+        // x-axis limit line
+        LimitLine llXAxis = new LimitLine(10f, "Index 10");
+        llXAxis.setLineWidth(4f);
+        llXAxis.enableDashedLine(10f, 10f, 0f);
+        llXAxis.setLabelPosition(LimitLine.LimitLabelPosition.RIGHT_BOTTOM);
+        llXAxis.setTextSize(10f);
+
+        XAxis xAxis = mChart.getXAxis();
+        xAxis.enableGridDashedLine(10f, 10f, 0f);
+        //xAxis.setValueFormatter(new MyCustomXAxisValueFormatter());
+        //xAxis.addLimitLine(llXAxis); // add x-axis limit line
+
+
+//            Typeface tf = Typeface.createFromAsset(getAssets(), "OpenSans-Regular.ttf");
+
+        LimitLine ll1 = new LimitLine(150f, "Upper Limit");
+        ll1.setLineWidth(4f);
+        ll1.enableDashedLine(10f, 10f, 0f);
+        ll1.setLabelPosition(LimitLine.LimitLabelPosition.RIGHT_TOP);
+        ll1.setTextSize(10f);
+//            ll1.setTypeface(tf);
+
+        LimitLine ll2 = new LimitLine(-30f, "Lower Limit");
+        ll2.setLineWidth(4f);
+        ll2.enableDashedLine(10f, 10f, 0f);
+        ll2.setLabelPosition(LimitLine.LimitLabelPosition.RIGHT_BOTTOM);
+        ll2.setTextSize(10f);
+//            ll2.setTypeface(tf);
+
+        YAxis leftAxis = mChart.getAxisLeft();
+        leftAxis.removeAllLimitLines(); // reset all limit lines to avoid overlapping lines
+        leftAxis.addLimitLine(ll1);
+        leftAxis.addLimitLine(ll2);
+        leftAxis.setAxisMaximum(200f);
+        leftAxis.setAxisMinimum(-50f);
+        //leftAxis.setYOffset(20f);
+        leftAxis.enableGridDashedLine(10f, 10f, 0f);
+        leftAxis.setDrawZeroLine(false);
+
+        // limit lines are drawn behind data (and not on top)
+        leftAxis.setDrawLimitLinesBehindData(true);
+
+        mChart.getAxisRight().setEnabled(false);
+
+        setData(45, 100);
     }
 
 }
