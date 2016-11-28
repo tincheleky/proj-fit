@@ -1,0 +1,170 @@
+<LinearLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:map="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_height="match_parent"
+    android:layout_width="match_parent"
+    android:weightSum="100"
+    android:orientation="vertical">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="20"
+        android:weightSum="100"
+        android:orientation="horizontal">
+
+        <TextView
+            android:layout_width="0dp"
+            android:layout_height="match_parent"
+            android:text="Workout Details"
+            android:textSize="25sp"
+            android:layout_gravity="center"
+            android:gravity="center"
+            android:layout_weight="32"/>
+
+        <TextView
+            android:layout_width="0dp"
+            android:layout_height="match_parent"
+            android:layout_weight="8"
+            android:text="AVG"
+            android:textSize="22sp"
+            android:background="@android:color/darker_gray"
+            android:layout_gravity="center"/>
+
+        <TextView
+            android:id="@+id/avg_min_km_display"
+            android:layout_width="0dp"
+            android:layout_height="match_parent"
+            android:layout_weight="16"
+            android:text="XX:XX"
+            android:textSize="30sp"
+            android:background="@android:color/darker_gray"
+            android:layout_gravity="center"
+            android:gravity="bottom|center"/>
+
+        <TextView
+            android:layout_width="0dp"
+            android:layout_height="match_parent"
+            android:layout_weight="10"
+            android:text="min/km"
+            android:textSize="15sp"
+            android:background="@android:color/darker_gray"
+            android:gravity="bottom|center"
+            android:layout_gravity="center"/>
+
+        <LinearLayout
+            android:layout_width="0dp"
+            android:layout_height="match_parent"
+            android:layout_weight="34"
+            android:orientation="vertical"
+            android:weightSum="100">
+
+
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="0dp"
+                android:layout_weight="50">
+
+                <TextView
+                    android:layout_width="0dp"
+                    android:layout_height="match_parent"
+                    android:layout_weight="8"
+                    android:text="MAX"
+                    android:textSize="20sp"
+                    android:background="@android:color/darker_gray"
+                    android:layout_gravity="center"/>
+
+                <TextView
+                    android:id="@+id/max_min_km_display"
+                    android:layout_width="0dp"
+                    android:layout_height="match_parent"
+                    android:layout_weight="16"
+                    android:text="XX:XX"
+                    android:textSize="25sp"
+                    android:background="@android:color/darker_gray"
+                    android:layout_gravity="center"
+                    android:gravity="center"/>
+
+                <TextView
+                    android:layout_width="0dp"
+                    android:layout_height="match_parent"
+                    android:layout_weight="10"
+                    android:text="min/km"
+                    android:textSize="15sp"
+                    android:background="@android:color/darker_gray"
+                    android:gravity="center"
+                    android:layout_gravity="center"/>
+
+
+
+            </LinearLayout>
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="0dp"
+                android:layout_weight="50">
+
+                <TextView
+                    android:layout_width="0dp"
+                    android:layout_height="match_parent"
+                    android:layout_weight="8"
+                    android:text="MIN"
+                    android:textSize="20sp"
+                    android:background="@android:color/darker_gray"
+                    android:layout_gravity="center"/>
+
+                <TextView
+                    android:id="@+id/min_min_km_display"
+                    android:layout_width="0dp"
+                    android:layout_height="match_parent"
+                    android:layout_weight="16"
+                    android:text="XX:XX"
+                    android:textSize="25sp"
+                    android:background="@android:color/darker_gray"
+                    android:layout_gravity="center"
+                    android:gravity="center"/>
+
+                <TextView
+                    android:layout_width="0dp"
+                    android:layout_height="match_parent"
+                    android:layout_weight="10"
+                    android:text="min/km"
+                    android:textSize="15sp"
+                    android:background="@android:color/darker_gray"
+                    android:gravity="center"
+                    android:layout_gravity="center"/>
+
+
+
+            </LinearLayout>
+
+
+        </LinearLayout>
+
+
+
+
+
+
+    </LinearLayout>
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="80"
+        android:background="@android:color/holo_purple">
+
+        <com.github.mikephil.charting.charts.LineChart
+            android:id="@+id/chart"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent">
+
+        </com.github.mikephil.charting.charts.LineChart>
+
+    </LinearLayout>
+
+</LinearLayout>
+
+

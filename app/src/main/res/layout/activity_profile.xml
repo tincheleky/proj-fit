@@ -1,0 +1,367 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:id="@+id/activity_profile"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:paddingBottom="2dp"
+    android:paddingLeft="8dp"
+    android:paddingRight="8dp"
+    android:paddingTop="2dp"
+    android:orientation="vertical"
+    tools:context="com.tin.proj_fit.activities.ProfileActivity"
+    android:weightSum="100"
+    android:focusableInTouchMode="true"
+    android:descendantFocusability="beforeDescendants">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="12"
+        android:weightSum="100">
+
+        <EditText
+            android:layout_width="0dp"
+            android:layout_height="match_parent"
+            android:layout_weight="60"
+            android:hint="Name"
+            android:textSize="20sp"
+            android:layout_gravity="center"
+            android:gravity="center"/>
+
+        <ImageView
+            android:layout_width="0dp"
+            android:layout_height="match_parent"
+            android:layout_weight="40"
+            android:src="@drawable/ic_person_black_24dp" />
+
+    </LinearLayout>
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="10"
+        android:orientation="horizontal"
+        android:weightSum="100">
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Gender: "
+            android:layout_gravity="center"
+            android:layout_weight="25"
+            android:textSize="20sp"
+            android:gravity="center"/>
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="holder"
+            android:layout_gravity="center"
+            android:textSize="20sp"
+            android:gravity="center"
+            android:layout_weight="25"
+            android:background="@android:color/darker_gray"/>
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Weight: "
+            android:layout_gravity="center"
+            android:textSize="20sp"
+            android:gravity="center"
+            android:layout_weight="25"/>
+
+        <EditText
+            android:id="@+id/user_weight"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:hint="180 lbs"
+            android:layout_gravity="center"
+            android:textSize="20sp"
+            android:gravity="center"
+            android:layout_weight="25"
+            android:background="@android:color/darker_gray"/>
+
+
+
+    </LinearLayout>
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="78"
+        android:orientation="vertical"
+        android:weightSum="100">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="0dp"
+            android:layout_weight="10"
+            android:orientation="horizontal"
+            android:background="@android:color/darker_gray">
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Average/Weekly"
+                android:layout_gravity="center"
+                android:gravity="center"
+                android:textSize="22sp"/>
+
+        </LinearLayout>
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="0dp"
+            android:layout_weight="10"
+            android:orientation="horizontal"
+            android:weightSum="100">
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Distance"
+                android:textSize="22sp"
+                android:layout_gravity="center"
+                android:gravity="left"
+                android:layout_weight="33"/>
+
+            <TextView
+                android:id="@+id/user_avg_distance"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="xx.xx km"
+                android:textSize="22sp"
+                android:layout_gravity="center"
+                android:gravity="right"
+                android:layout_weight="67"/>
+
+
+        </LinearLayout>
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="0dp"
+            android:layout_weight="10"
+            android:orientation="horizontal"
+            android:weightSum="100">
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Time"
+                android:textSize="22sp"
+                android:layout_gravity="center"
+                android:gravity="left"
+                android:layout_weight="33"/>
+
+            <TextView
+                android:id="@+id/user_avg_time"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="xx hrs xx min xx second"
+                android:textSize="22sp"
+                android:layout_gravity="center"
+                android:gravity="right"
+                android:layout_weight="67"/>
+
+
+        </LinearLayout>
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="0dp"
+            android:layout_weight="10"
+            android:orientation="horizontal"
+            android:weightSum="100">
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Workouts"
+                android:textSize="22sp"
+                android:layout_gravity="center"
+                android:gravity="left"
+                android:layout_weight="33"/>
+
+            <TextView
+                android:id="@+id/user_avg_workouts"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="XX times"
+                android:textSize="22sp"
+                android:layout_gravity="center"
+                android:gravity="right"
+                android:layout_weight="67"/>
+
+
+        </LinearLayout>
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="0dp"
+            android:layout_weight="10"
+            android:orientation="horizontal"
+            android:weightSum="100">
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Calories Burned"
+                android:textSize="22sp"
+                android:layout_gravity="center"
+                android:gravity="left"
+                android:layout_weight="33"/>
+
+            <TextView
+                android:id="@+id/user_avg_cal"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="XX,XXX Cal"
+                android:textSize="22sp"
+                android:layout_gravity="center"
+                android:gravity="right"
+                android:layout_weight="67"/>
+
+
+        </LinearLayout>
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="0dp"
+            android:layout_weight="10"
+            android:orientation="horizontal"
+            android:background="@android:color/darker_gray">
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="All Time"
+                android:textSize="22sp"
+                android:layout_gravity="center"
+                android:gravity="center"/>
+
+        </LinearLayout>
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="0dp"
+            android:layout_weight="10"
+            android:orientation="horizontal"
+            android:weightSum="100">
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Distance"
+                android:textSize="22sp"
+                android:layout_gravity="center"
+                android:gravity="left"
+                android:layout_weight="33"/>
+
+            <TextView
+                android:id="@+id/user_alltime_distance"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="xx.xx km"
+                android:textSize="22sp"
+                android:layout_gravity="center"
+                android:gravity="right"
+                android:layout_weight="67"/>
+
+
+        </LinearLayout>
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="0dp"
+            android:layout_weight="10"
+            android:orientation="horizontal"
+            android:weightSum="100">
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Time"
+                android:textSize="22sp"
+                android:layout_gravity="center"
+                android:gravity="left"
+                android:layout_weight="33"/>
+
+            <TextView
+                android:id="@+id/user_alltime_time"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="xx hrs xx min xx second"
+                android:textSize="22sp"
+                android:layout_gravity="center"
+                android:gravity="right"
+                android:layout_weight="67"/>
+
+
+        </LinearLayout>
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="0dp"
+            android:layout_weight="10"
+            android:orientation="horizontal"
+            android:weightSum="100">
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Workouts"
+                android:textSize="22sp"
+                android:layout_gravity="center"
+                android:gravity="left"
+                android:layout_weight="33"/>
+
+            <TextView
+                android:id="@+id/user_alltime_workouts"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="XX times"
+                android:textSize="22sp"
+                android:layout_gravity="center"
+                android:gravity="right"
+                android:layout_weight="67"/>
+
+
+        </LinearLayout>
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="0dp"
+            android:layout_weight="10"
+            android:orientation="horizontal"
+            android:weightSum="100">
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Calories Burned"
+                android:textSize="22sp"
+                android:layout_gravity="center"
+                android:gravity="left"
+                android:layout_weight="33"/>
+
+            <TextView
+                android:id="@+id/user_alltime_cal"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="XX,XXX Cal"
+                android:textSize="22sp"
+                android:layout_gravity="center"
+                android:gravity="right"
+                android:layout_weight="67"/>
+
+
+        </LinearLayout>
+
+    </LinearLayout>
+
+
+
+</LinearLayout>
