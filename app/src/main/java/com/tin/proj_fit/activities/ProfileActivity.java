@@ -20,6 +20,9 @@ import com.google.android.gms.vision.text.Text;
 import com.tin.proj_fit.R;
 import com.tin.proj_fit.models.User;
 
+import java.text.DecimalFormat;
+import java.util.concurrent.TimeUnit;
+
 public class ProfileActivity extends AppCompatActivity
 {
     public static AutoCompleteTextView tvGender;
@@ -33,6 +36,7 @@ public class ProfileActivity extends AppCompatActivity
     public static TextView tvAllTimeTime;
     public static TextView tvAllTimeSessionCounts;
     public static TextView tvAllTimeCaloBurnt;
+    DecimalFormat decimalFormat = new DecimalFormat("#0.000");
 
     public static User user;
     SharedPreferences sharedPreferences;
@@ -50,10 +54,7 @@ public class ProfileActivity extends AppCompatActivity
 
 
         sharedPreferences = getSharedPreferences(FitnessActivity.PREFERENCE, MODE_PRIVATE);
-        user = new User();
-        user.setUserName(sharedPreferences.getString("name", ""));
-        user.setGender(sharedPreferences.getString("gender", ""));
-        user.setWeight(sharedPreferences.getInt("weight", 0));
+        user = FitnessActivity.user;
 
         etName = (EditText) findViewById(R.id.user_name);
         etWeight = (EditText) findViewById(R.id.user_weight);
@@ -161,11 +162,56 @@ public class ProfileActivity extends AppCompatActivity
             tvGender.setText(user.getGender());
         }
 
+        updateProfileActivity();
 
     }
 
 
+    private void updateProfileActivity()
+    {
+        if (ProfileActivity.tvAvgDistance != null) {
+            ProfileActivity.tvAvgDistance.setText(decimalFormat.format(user.getWeeklyDistance()) + " km");
+        }
 
+        if (ProfileActivity.tvAvgTime != null) {
+            ProfileActivity.tvAvgTime.setText(formatTime(user.getWeeklyDuration()));
+        }
+
+        if(ProfileActivity.tvAvgCaloBurnt != null)
+        {
+            int avgCalo = user.getWeeklyCaloBurnt();
+            ProfileActivity.tvAvgCaloBurnt.setText(String.valueOf(avgCalo));
+        }
+
+        if(ProfileActivity.tvAvgSessionCounts != null)
+        {
+            ProfileActivity.tvAvgSessionCounts.setText(String.valueOf(user.getWeeklyList().size()));
+        }
+
+        if(ProfileActivity.tvAllTimeDistance != null)
+        {
+            double alltimeDistance = user.getAllTimeDistance();
+            ProfileActivity.tvAllTimeDistance.setText(decimalFormat.format(alltimeDistance) + " km");
+        }
+
+        if(ProfileActivity.tvAllTimeTime != null)
+        {
+            long alltimeValue = user.getAllTimeDuration();
+            ProfileActivity.tvAllTimeTime.setText(formatTime(alltimeValue));
+
+        }
+
+        if(ProfileActivity.tvAllTimeCaloBurnt != null)
+        {
+            int alltimeCalo = user.getAllTimeCaloBurnt();
+            ProfileActivity.tvAllTimeCaloBurnt.setText(String.valueOf(alltimeCalo));
+        }
+
+        if(ProfileActivity.tvAllTimeSessionCounts != null)
+        {
+            ProfileActivity.tvAllTimeSessionCounts.setText(String.valueOf(user.getAllTimeList().size()));
+        }
+    }
 
 
     @Override
@@ -177,5 +223,14 @@ public class ProfileActivity extends AppCompatActivity
                 return true;
         }
         return super.onOptionsItemSelected(item);
+    }
+
+    private String formatTime (long time)
+    {
+        String temp = String.format("%02d:%02d:%02d", TimeUnit.MILLISECONDS.toHours(time),
+                TimeUnit.MILLISECONDS.toMinutes(time) - TimeUnit.HOURS.toMinutes(TimeUnit.MILLISECONDS.toHours(time)),
+                TimeUnit.MILLISECONDS.toSeconds(time) - TimeUnit.MINUTES.toSeconds(TimeUnit.MILLISECONDS.toMinutes(time)));
+
+        return temp;
     }
 }

@@ -12,6 +12,8 @@ public class User
     String userName;
     String gender;
     int weight;
+    public ArrayList<WorkoutSession> weeklyList;
+    public ArrayList<WorkoutSession> allTimeList;
 
     public String getUserName() {
         return userName;
@@ -36,9 +38,6 @@ public class User
     public void setWeight(int weight) {
         this.weight = weight;
     }
-
-    ArrayList<WorkoutSession> weeklyList;
-    ArrayList<WorkoutSession> allTimeList;
 
     public User() {
         weeklyList = new ArrayList<>();

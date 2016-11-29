@@ -72,6 +72,9 @@ public class FitnessActivity extends FragmentActivity implements
     public static final double STEP_TO_KM = 0.000762;
     public static final String PREFERENCE = "PREFERENCE";
     public static final int STORING_DATA_INTERVAL = 5000;
+    public static final double STEP_TO_CALO = 0.045;
+    public static String URL = "content://com.tin.proj_fit.providers.WorkoutSessionContentProvider";
+
 
     private GoogleMap mMap;
     private FusedLocationProviderApi fusedLocationProviderApi = LocationServices.FusedLocationApi;
@@ -125,11 +128,14 @@ public class FitnessActivity extends FragmentActivity implements
     static double curMinKm;
     static long initTime;
     static long curTime;
-    static int totalCaloBurnt;
+    static double totalCaloBurnt;
     public static User user;
     static double distanceToBeStored;
     static long durationToBeStored;
-    static int caloToBeStored;
+    static double caloToBeStored;
+    static int plottingCounts;
+    static ArrayList<Entry> stepsDataSet;// = new ArrayList<Entry>();
+    static ArrayList<Entry> caloDataSet;// = new ArrayList<Entry>();
 
 
     @Override
@@ -149,10 +155,12 @@ public class FitnessActivity extends FragmentActivity implements
         user.setUserName(sharedPreferences.getString("name", ""));
         user.setGender(sharedPreferences.getString("gender", ""));
         user.setWeight(sharedPreferences.getInt("weight", 0));
+        updateUser();
 
         if (getResources().getConfiguration().orientation == Configuration.ORIENTATION_LANDSCAPE) {
             Toast.makeText(this, "Landscape", Toast.LENGTH_SHORT).show();
-            setupChart();
+            mChart = (LineChart) findViewById(R.id.chart);
+//            setupChart();
             tvAvgMinKm = (TextView) findViewById(R.id.avg_min_km_display);
             tvMaxMinKm = (TextView) findViewById(R.id.max_min_km_display);
             tvMinMinKm = (TextView) findViewById(R.id.min_min_km_display);
@@ -298,9 +306,13 @@ public class FitnessActivity extends FragmentActivity implements
                     curStepCounts = initStepCounts;
                 } else {
                     value = (int) values[0] - curStepCounts;
+                    System.out.println("STEPS: " + values[0]);
+                    if(value == 0)
+                        value += 1;
                     curStepCounts += value;
                     updateWorkoutDetail(value);
                     updateWorkoutSession(value);
+                    totalCaloBurnt += value * STEP_TO_CALO;
                 }
 
             }
@@ -343,6 +355,8 @@ public class FitnessActivity extends FragmentActivity implements
 
     private void updateWorkoutSession(int steps) {
         sessionDistance += steps * STEP_TO_KM;
+        distanceToBeStored += steps * STEP_TO_KM;
+        caloToBeStored += steps * STEP_TO_CALO;
 
         if (tvDistance != null) {
             String temp = decimalFormatter.format(sessionDistance) + " km";
@@ -352,6 +366,8 @@ public class FitnessActivity extends FragmentActivity implements
 
     private void updateDuration() {
         curSecond += 1000;
+        durationToBeStored += 1000;
+
         hms = String.format("%02d:%02d:%02d", TimeUnit.MILLISECONDS.toHours(curSecond),
                 TimeUnit.MILLISECONDS.toMinutes(curSecond) - TimeUnit.HOURS.toMinutes(TimeUnit.MILLISECONDS.toHours(curSecond)),
                 TimeUnit.MILLISECONDS.toSeconds(curSecond) - TimeUnit.MINUTES.toSeconds(TimeUnit.MILLISECONDS.toMinutes(curSecond)));
@@ -467,33 +483,33 @@ public class FitnessActivity extends FragmentActivity implements
     }
 
 
-    private void setData(int count, float range) {
+    private LineDataSet setStepsData(int count, float range) {
 
-        ArrayList<Entry> values = new ArrayList<Entry>();
-
-        for (int i = 0; i < count; i++) {
-
-            float val = (float) (Math.random() * range) + 3;
-            values.add(new Entry(i, val));
-        }
+//        ArrayList<Entry> values = new ArrayList<Entry>();
+//
+//        for (int i = 0; i < count; i++) {
+//
+//            float val = (float) (Math.random() * range) + 3;
+//            values.add(new Entry(i, val));
+//        }
 
         LineDataSet set1;
 
         if (mChart.getData() != null &&
                 mChart.getData().getDataSetCount() > 0) {
             set1 = (LineDataSet) mChart.getData().getDataSetByIndex(0);
-            set1.setValues(values);
+            set1.setValues(stepsDataSet);
             mChart.getData().notifyDataChanged();
             mChart.notifyDataSetChanged();
         } else {
             // create a dataset and give it a type
-            set1 = new LineDataSet(values, "DataSet 1");
+            set1 = new LineDataSet(stepsDataSet, "Steps");
 
             // set the line to be drawn like this "- - - - - -"
             set1.enableDashedLine(10f, 5f, 0f);
             set1.enableDashedHighlightLine(10f, 5f, 0f);
-            set1.setColor(Color.BLACK);
-            set1.setCircleColor(Color.BLACK);
+            set1.setColor(Color.GREEN);
+            set1.setCircleColor(Color.GREEN);
             set1.setLineWidth(1f);
             set1.setCircleRadius(3f);
             set1.setDrawCircleHole(false);
@@ -503,30 +519,68 @@ public class FitnessActivity extends FragmentActivity implements
             set1.setFormLineDashEffect(new DashPathEffect(new float[]{10f, 5f}, 0f));
             set1.setFormSize(15.f);
 
-//            if (Utils.getSDKInt() >= 18) {
-//                // fill drawable only supported on api level 18 and above
-//                Drawable drawable = ContextCompat.getDrawable(this, R.drawable.fade_red);
-//                set1.setFillDrawable(drawable);
-//            }
-//            else {
-//                set1.setFillColor(Color.BLACK);
-//            }
+            set1.setFillColor(Color.GREEN);
+//
+//            // create a data object with the datasets
+//            LineData data = new LineData(dataSets);
 
-            set1.setFillColor(Color.BLACK);
-            ArrayList<ILineDataSet> dataSets = new ArrayList<ILineDataSet>();
-            dataSets.add(set1); // add the datasets
-
-            // create a data object with the datasets
-            LineData data = new LineData(dataSets);
-
-            // set data
-            mChart.setData(data);
         }
+
+        return set1;
     }
 
-    private void setupChart() {
-        mChart = (LineChart) findViewById(R.id.chart);
+    private LineDataSet setCaloData(int count, float range) {
 
+//        ArrayList<Entry> values = new ArrayList<Entry>();
+//
+//        for (int i = 0; i < values.size(); i++) {
+//
+//            float val = (float) (Math.random() * range) + 3;
+//            values.add(new Entry(i, val));
+//        }
+
+        LineDataSet set1;
+
+        if (mChart.getData() != null &&
+                mChart.getData().getDataSetCount() > 0) {
+            set1 = (LineDataSet) mChart.getData().getDataSetByIndex(0);
+            set1.setValues(caloDataSet);
+            mChart.getData().notifyDataChanged();
+            mChart.notifyDataSetChanged();
+        } else {
+            // create a dataset and give it a type
+            set1 = new LineDataSet(caloDataSet, "Calories");
+
+            // set the line to be drawn like this "- - - - - -"
+            set1.enableDashedLine(10f, 5f, 0f);
+            set1.enableDashedHighlightLine(10f, 5f, 0f);
+            set1.setColor(Color.YELLOW);
+            set1.setCircleColor(Color.YELLOW);
+            set1.setLineWidth(1f);
+            set1.setCircleRadius(3f);
+            set1.setDrawCircleHole(false);
+            set1.setValueTextSize(9f);
+            set1.setDrawFilled(true);
+            set1.setFormLineWidth(1f);
+            set1.setFormLineDashEffect(new DashPathEffect(new float[]{10f, 5f}, 0f));
+            set1.setFormSize(15.f);
+
+            set1.setFillColor(Color.YELLOW);
+
+
+        }
+        return set1;
+
+    }
+
+    private void setupChart()
+    {
+        if(plottingCounts == 0)
+        {
+            plottingCounts = 1;
+        }
+        mChart.clear();
+        mChart.invalidate();
         //SETUP CHART
         // x-axis limit line
         LimitLine llXAxis = new LimitLine(10f, "Index 10");
@@ -537,34 +591,19 @@ public class FitnessActivity extends FragmentActivity implements
 
         XAxis xAxis = mChart.getXAxis();
         xAxis.enableGridDashedLine(10f, 10f, 0f);
-        xAxis.setAxisMaximum(24f);
+        xAxis.setAxisMaximum(plottingCounts);
         xAxis.setAxisMinimum(0f);
+        xAxis.setPosition(XAxis.XAxisPosition.BOTTOM);
+
         //xAxis.setValueFormatter(new MyCustomXAxisValueFormatter());
         //xAxis.addLimitLine(llXAxis); // add x-axis limit line
 
-
-//            Typeface tf = Typeface.createFromAsset(getAssets(), "OpenSans-Regular.ttf");
-
-        LimitLine ll1 = new LimitLine(150f, "Upper Limit");
-        ll1.setLineWidth(4f);
-        ll1.enableDashedLine(10f, 10f, 0f);
-        ll1.setLabelPosition(LimitLine.LimitLabelPosition.RIGHT_TOP);
-        ll1.setTextSize(10f);
-//            ll1.setTypeface(tf);
-
-        LimitLine ll2 = new LimitLine(-30f, "Lower Limit");
-        ll2.setLineWidth(4f);
-        ll2.enableDashedLine(10f, 10f, 0f);
-        ll2.setLabelPosition(LimitLine.LimitLabelPosition.RIGHT_BOTTOM);
-        ll2.setTextSize(10f);
-//            ll2.setTypeface(tf);
-
         YAxis leftAxis = mChart.getAxisLeft();
         leftAxis.removeAllLimitLines(); // reset all limit lines to avoid overlapping lines
-        leftAxis.addLimitLine(ll1);
-        leftAxis.addLimitLine(ll2);
-        leftAxis.setAxisMaximum(200f);
-        leftAxis.setAxisMinimum(-50f);
+//        leftAxis.addLimitLine(ll1);
+//        leftAxis.addLimitLine(ll2);
+        leftAxis.setAxisMaximum(50f);
+        leftAxis.setAxisMinimum(0f);
         //leftAxis.setYOffset(20f);
         leftAxis.enableGridDashedLine(10f, 10f, 0f);
         leftAxis.setDrawZeroLine(false);
@@ -572,9 +611,25 @@ public class FitnessActivity extends FragmentActivity implements
         // limit lines are drawn behind data (and not on top)
         leftAxis.setDrawLimitLinesBehindData(true);
 
-        mChart.getAxisRight().setEnabled(false);
+//        mChart.getAxisRight().setEnabled(false);
 
-        setData(45, 100);
+        YAxis rightAxis = mChart.getAxisRight();
+        rightAxis.removeAllLimitLines(); // reset all limit lines to avoid overlapping lines
+        rightAxis.setAxisMaximum(5f);
+        rightAxis.setAxisMinimum(0f);
+        rightAxis.enableGridDashedLine(10f, 10f, 0f);
+        rightAxis.setDrawZeroLine(false);
+
+        rightAxis.setDrawLimitLinesBehindData(true);
+
+
+        ArrayList<ILineDataSet> dataSets = new ArrayList<ILineDataSet>();
+        dataSets.add(setStepsData(plottingCounts, 100));
+        dataSets.add(setCaloData(plottingCounts, 100));
+
+        LineData data = new LineData(dataSets);
+        mChart.setData(data);
+        System.out.println("CHART: " + curSecond);
     }
 
     private void initSession() {
@@ -585,6 +640,12 @@ public class FitnessActivity extends FragmentActivity implements
         curMinKm = 0.0;
         initTime = System.currentTimeMillis();
         curTime = initTime;
+        curSecond = 0;
+        totalCaloBurnt = 0;
+        plottingCounts = 1;
+
+        caloDataSet = new ArrayList<>();
+        stepsDataSet = new ArrayList<>();
 
         isInit = false;
         isInSession = true;
@@ -596,7 +657,6 @@ public class FitnessActivity extends FragmentActivity implements
             tvDuration.setText("00:00:00");
         }
 
-        curSecond = 0;
         durationUpdateCountDownTimer = new CountDownTimer(1000, 500) {
             @Override
             public void onTick(long l) {
@@ -626,25 +686,13 @@ public class FitnessActivity extends FragmentActivity implements
         contentValues.put(WorkoutSessionContentProvider.DURATION, curSecond);
         contentValues.put(WorkoutSessionContentProvider.CALORIES, totalCaloBurnt);
 
+        user.allTimeList.add(new WorkoutSession(sessionDistance, curSecond, (int)totalCaloBurnt));
+
         Uri uri = getContentResolver().insert(
                 WorkoutSessionContentProvider.URI, contentValues);
 
         Toast.makeText(this, uri.toString(), Toast.LENGTH_LONG).show();
 
-        // Retrieve student records
-        String URL = "content://com.tin.proj_fit.providers.WorkoutSessionContentProvider";
-
-        Uri workouts = Uri.parse(URL);
-        Cursor c = managedQuery(workouts, null, null, null, "_id");
-
-        if (c.moveToFirst()) {
-            do{
-                Toast.makeText(this,
-                        c.getString(c.getColumnIndex(WorkoutSessionContentProvider._ID)) +
-                                ", " +  c.getString(c.getColumnIndex( WorkoutSessionContentProvider.DISTANCE)) +
-                                ", " + c.getString(c.getColumnIndex( WorkoutSessionContentProvider.DURATION)), Toast.LENGTH_SHORT).show();
-            } while (c.moveToNext());
-        }
     }
 
     private void setCurrentStatus() {
@@ -656,13 +704,50 @@ public class FitnessActivity extends FragmentActivity implements
         }
     }
 
-    private void updateProfileActivity() {
+    private void updateProfileActivity()
+    {
+
         if (ProfileActivity.tvAvgDistance != null) {
             ProfileActivity.tvAvgDistance.setText(decimalFormatter.format(sessionDistance) + " km");
         }
 
         if (ProfileActivity.tvAvgTime != null) {
             ProfileActivity.tvAvgTime.setText(hms);
+        }
+
+        if(ProfileActivity.tvAvgCaloBurnt != null)
+        {
+            int avgCalo = user.getWeeklyCaloBurnt() + (int)totalCaloBurnt;
+            ProfileActivity.tvAvgCaloBurnt.setText(String.valueOf(avgCalo));
+        }
+
+        if(ProfileActivity.tvAvgSessionCounts != null)
+        {
+            ProfileActivity.tvAvgSessionCounts.setText(String.valueOf(user.getWeeklyList().size()));
+        }
+
+        if(ProfileActivity.tvAllTimeDistance != null)
+        {
+            double alltimeDistance = user.getAllTimeDistance() + sessionDistance;
+            ProfileActivity.tvAllTimeDistance.setText(decimalFormatter.format(alltimeDistance) + " km");
+        }
+
+        if(ProfileActivity.tvAllTimeTime != null)
+        {
+            long alltimeValue = user.getAllTimeDuration() + curSecond;
+            ProfileActivity.tvAllTimeTime.setText(formatTime(alltimeValue));
+
+        }
+
+        if(ProfileActivity.tvAllTimeCaloBurnt != null)
+        {
+            int alltimeCalo = user.getAllTimeCaloBurnt() + (int)totalCaloBurnt;
+            ProfileActivity.tvAllTimeCaloBurnt.setText(String.valueOf(alltimeCalo));
+        }
+
+        if(ProfileActivity.tvAllTimeSessionCounts != null)
+        {
+            ProfileActivity.tvAllTimeSessionCounts.setText(String.valueOf(user.getAllTimeList().size()));
         }
     }
 
@@ -708,8 +793,11 @@ public class FitnessActivity extends FragmentActivity implements
                     try {
                         if (rService != null)
                         {
-                            rService.putData(distanceToBeStored, durationToBeStored, caloToBeStored);
-                            System.out.println("rService.debugPrint() " + rService.debugPrint(distanceToBeStored, durationToBeStored, caloToBeStored));
+                            rService.putData(distanceToBeStored, durationToBeStored, (int) caloToBeStored);
+                            System.out.println("rService.debugPrint() " + rService.debugPrint(distanceToBeStored, durationToBeStored, (int) caloToBeStored));
+                            distanceToBeStored = 0;
+                            durationToBeStored = 0;
+                            caloToBeStored = 0;
                         }
                     } catch (RemoteException e) {
                         e.printStackTrace();
@@ -722,14 +810,32 @@ public class FitnessActivity extends FragmentActivity implements
             @Override
             public void onFinish() {
                 try {
-                    if (rService != null) {
-                        rService.putData(distanceToBeStored, durationToBeStored, caloToBeStored);
-                        System.out.println("rService.debugPrint() " + rService.debugPrint(distanceToBeStored, durationToBeStored, caloToBeStored));
+                    if (rService != null)
+                    {
+                        caloDataSet.add(new Entry(plottingCounts, (float)caloToBeStored));
+                        stepsDataSet.add(new Entry(plottingCounts, (float)(caloToBeStored / STEP_TO_CALO)));
+                        plottingCounts++;
+                        if(isLandscape)
+                        {
+                            if(plottingCounts == 0)
+                                plottingCounts = 1;
+                            if(mChart != null) {
+                                setupChart();
+                            }
+                        }
+
+                        rService.putData(distanceToBeStored, durationToBeStored, (int)caloToBeStored);
+                        System.out.println("rService.debugPrint() " + rService.debugPrint(distanceToBeStored, durationToBeStored, (int)caloToBeStored));
                         Cursor cursor = db.getData();
                         int cnt = 0;
                         while (cursor.moveToNext())
                             cnt++;
                         System.out.println("Total Workout Data entries: " + cnt);
+                        distanceToBeStored = 0;
+                        durationToBeStored = 0;
+                        caloToBeStored = 0;
+
+
                         storingDataCountDownTimer.start();
                     }
 
@@ -740,5 +846,35 @@ public class FitnessActivity extends FragmentActivity implements
             }
         };
         storingDataCountDownTimer.start();
+    }
+
+
+    private void updateUser()
+    {
+        Uri workouts = Uri.parse(URL);
+        Cursor c = managedQuery(workouts, null, null, null, "_id");
+
+        if (c.moveToFirst()) {
+            do{
+                user.allTimeList = new ArrayList<>();
+                user.getAllTimeList().add(new WorkoutSession(c.getDouble(c.getColumnIndex(WorkoutSessionContentProvider.DISTANCE)),
+                        c.getLong(c.getColumnIndex(WorkoutSessionContentProvider.DURATION)),
+                        c.getInt(c.getColumnIndex(WorkoutSessionContentProvider.CALORIES))));
+
+                System.out.println(c.getString(c.getColumnIndex(WorkoutSessionContentProvider._ID)) +
+                                ", " +  c.getString(c.getColumnIndex(WorkoutSessionContentProvider.DISTANCE)) +
+                                ", " + c.getString(c.getColumnIndex(WorkoutSessionContentProvider.DURATION)) +
+                                ", " + c.getString(c.getColumnIndex(WorkoutSessionContentProvider.CALORIES)));
+            } while (c.moveToNext());
+        }
+    }
+
+    private String formatTime (long time)
+    {
+        String temp = String.format("%02d:%02d:%02d", TimeUnit.MILLISECONDS.toHours(time),
+                TimeUnit.MILLISECONDS.toMinutes(time) - TimeUnit.HOURS.toMinutes(TimeUnit.MILLISECONDS.toHours(time)),
+                TimeUnit.MILLISECONDS.toSeconds(time) - TimeUnit.MINUTES.toSeconds(TimeUnit.MILLISECONDS.toMinutes(time)));
+
+        return temp;
     }
 }
