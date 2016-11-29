@@ -336,7 +336,6 @@ public class FitnessActivity extends FragmentActivity implements
             double lat = location.getLatitude();
             double lng = location.getLongitude();
             mMap.moveCamera(CameraUpdateFactory.newLatLngZoom(new LatLng(lat, lng), 18));
-//            System.out.println("Lat-Lng: " + lat + "," + lng);
             tvLat.setText(String.valueOf(lat));
             tvLong.setText(String.valueOf(lng));
             sessionLocation.add(new LatLng(lat, lng));
