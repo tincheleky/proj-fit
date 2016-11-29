@@ -2,6 +2,7 @@ package com.tin.proj_fit.activities;
 
 import android.Manifest;
 import android.content.ComponentName;
+import android.content.ContentValues;
 import android.content.Context;
 import android.content.Intent;
 import android.content.ServiceConnection;
@@ -18,6 +19,7 @@ import android.hardware.SensorManager;
 import android.location.Location;
 import android.location.LocationListener;
 import android.location.LocationManager;
+import android.net.Uri;
 import android.os.Bundle;
 import android.os.CountDownTimer;
 import android.os.IBinder;
@@ -52,8 +54,11 @@ import com.tin.proj_fit.R;
 import com.tin.proj_fit.models.SensorsHelper;
 import com.tin.proj_fit.models.User;
 import com.tin.proj_fit.models.WorkoutSession;
+import com.tin.proj_fit.providers.WorkoutSessionContentProvider;
 import com.tin.proj_fit.services.FitnessService;
 import com.tin.proj_fit.storage.LocationHistoryDbHelper;
+import com.tin.proj_fit.storage.WorkoutDataDbHelper;
+import com.tin.proj_fit.storage.WorkoutSessionDbHelper;
 
 import java.text.DecimalFormat;
 import java.text.NumberFormat;
@@ -63,9 +68,10 @@ import java.util.concurrent.TimeUnit;
 public class FitnessActivity extends FragmentActivity implements
         OnMapReadyCallback,
         LocationListener,
-        SensorEventListener{
+        SensorEventListener {
     public static final double STEP_TO_KM = 0.000762;
     public static final String PREFERENCE = "PREFERENCE";
+    public static final int STORING_DATA_INTERVAL = 5000;
 
     private GoogleMap mMap;
     private FusedLocationProviderApi fusedLocationProviderApi = LocationServices.FusedLocationApi;
@@ -88,7 +94,8 @@ public class FitnessActivity extends FragmentActivity implements
 
     FitnessActivity thisActivity;
     AidlFitnessService rService;
-    public static LocationHistoryDbHelper db;
+    public static WorkoutDataDbHelper db;
+    public static WorkoutSessionDbHelper sessionDb;
 
     Location initalLocation;
     RemoteConnection remoteConnection = null;
@@ -109,6 +116,7 @@ public class FitnessActivity extends FragmentActivity implements
     static int curStepCounts;
     static NumberFormat decimalFormatter = new DecimalFormat("#0.000");
     static CountDownTimer durationUpdateCountDownTimer;
+    static CountDownTimer storingDataCountDownTimer;
     static Location curLocation;
 
     static double maxMinKm;
@@ -117,7 +125,11 @@ public class FitnessActivity extends FragmentActivity implements
     static double curMinKm;
     static long initTime;
     static long curTime;
+    static int totalCaloBurnt;
     public static User user;
+    static double distanceToBeStored;
+    static long durationToBeStored;
+    static int caloToBeStored;
 
 
     @Override
@@ -128,7 +140,9 @@ public class FitnessActivity extends FragmentActivity implements
         checkPermission();
         System.out.println("onCreate called");
 
-        db = new LocationHistoryDbHelper(this);
+        db = new WorkoutDataDbHelper(this);
+        //sessionDb = new WorkoutSessionDbHelper(this);
+
         sharedPreferences = getSharedPreferences(PREFERENCE, MODE_PRIVATE);
 
         user = new User();
@@ -136,17 +150,14 @@ public class FitnessActivity extends FragmentActivity implements
         user.setGender(sharedPreferences.getString("gender", ""));
         user.setWeight(sharedPreferences.getInt("weight", 0));
 
-        if(getResources().getConfiguration().orientation == Configuration.ORIENTATION_LANDSCAPE)
-        {
+        if (getResources().getConfiguration().orientation == Configuration.ORIENTATION_LANDSCAPE) {
             Toast.makeText(this, "Landscape", Toast.LENGTH_SHORT).show();
             setupChart();
             tvAvgMinKm = (TextView) findViewById(R.id.avg_min_km_display);
             tvMaxMinKm = (TextView) findViewById(R.id.max_min_km_display);
             tvMinMinKm = (TextView) findViewById(R.id.min_min_km_display);
             isLandscape = true;
-        }
-        else
-        {
+        } else {
 
             // Obtain the SupportMapFragment and get notified when the map is ready to be used.
             SupportMapFragment mapFragment = (SupportMapFragment) getSupportFragmentManager()
@@ -154,7 +165,7 @@ public class FitnessActivity extends FragmentActivity implements
             mapFragment.getMapAsync(this);
             isLandscape = false;
 
-            if(locationManager == null)
+            if (locationManager == null)
                 locationManager = (LocationManager) getSystemService(LOCATION_SERVICE);
 
             tvStart = (TextView) findViewById(R.id.btn_start);
@@ -162,20 +173,16 @@ public class FitnessActivity extends FragmentActivity implements
             tvStart.setOnClickListener(new View.OnClickListener() {
                 @Override
                 public void onClick(View view) {
-                    if(tvStart.getText().toString().compareToIgnoreCase("Start") == 0)
-                    {
+                    if (tvStart.getText().toString().compareToIgnoreCase("Start") == 0) {
                         initSession();
                         sessionLocation = new ArrayList<LatLng>();
                         remoteConnection = new RemoteConnection();
                         Intent intent = new Intent(thisActivity, FitnessService.class);
                         intent.setAction(AidlFitnessService.class.getName());
                         //intent.setClassName("com.tin.proj_fit.services", com.tin.proj_fit.services.FitnessService.class.getName());
-                        if(!bindService(intent, remoteConnection, Context.BIND_AUTO_CREATE))
-                        {
+                        if (!bindService(intent, remoteConnection, Context.BIND_AUTO_CREATE)) {
                             tvRS.setText("Failed to bind Remote Service");
-                        }
-                        else
-                        {
+                        } else {
                             tvRS.setText("RS binded");
                         }
 
@@ -198,17 +205,15 @@ public class FitnessActivity extends FragmentActivity implements
                             curLat = initalLocation.getLatitude();
                             curLng = initalLocation.getLongitude();
                             System.out.println("Init Location: " + initalLocation.getLatitude() + initalLocation.getLongitude());
-                        }catch(SecurityException e){
+                        } catch (SecurityException e) {
                             e.printStackTrace();
                         }
-                    }
-                    else
-                    {
+                    } else {
                         tvStart.setText("Start");
                         endSesstion();
                         Cursor cursor = db.getData();
                         int cnt = 0;
-                        while(cursor.moveToNext())
+                        while (cursor.moveToNext())
                             cnt++;
                         System.out.println("Total Session entries: " + cnt);
                         Toast.makeText(thisActivity, "Stop training", Toast.LENGTH_SHORT).show();
@@ -219,27 +224,26 @@ public class FitnessActivity extends FragmentActivity implements
 //                        user.getAllTimeList().add(workoutSession);
 //                        user.getWeeklyList().add(workoutSession);
 
-                        if(remoteConnection != null) {
+                        if (remoteConnection != null) {
                             unbindService(remoteConnection);
                             remoteConnection = null;
                         }
 
                         //UNREGISTER SENSORS, LOCATIONLISTENNER
-                        if(sensorsHelper.getSensorManager() != null) {
+                        if (sensorsHelper.getSensorManager() != null) {
                             System.out.println("Successful unregister sensor");
-                            if(stepCounterSensor !=  null)
+                            if (stepCounterSensor != null)
                                 sensorsHelper.getSensorManager().unregisterListener(thisActivity, stepCounterSensor);
-                        }
-                        else
-                        {
+                        } else {
                             System.out.println("Failed to unregister sensor");
                         }
 
                         try {
                             locationManager.removeUpdates(thisActivity);
-                        }catch(SecurityException e){
+                        } catch (SecurityException e) {
                             e.printStackTrace();
                         }
+
                     }
                 }
             });
@@ -254,8 +258,7 @@ public class FitnessActivity extends FragmentActivity implements
         }
     }
 
-    private void checkPermission()
-    {
+    private void checkPermission() {
         if (ContextCompat.checkSelfPermission(this,
                 Manifest.permission.ACCESS_FINE_LOCATION)
                 != PackageManager.PERMISSION_GRANTED) {
@@ -276,17 +279,14 @@ public class FitnessActivity extends FragmentActivity implements
                         new String[]{Manifest.permission.ACCESS_FINE_LOCATION},
                         1);
             }
-        }
-        else
-        {
+        } else {
 
         }
     }
 
     @Override
-    public void onSensorChanged(SensorEvent sensorEvent)
-    {
-        if(isInSession) {
+    public void onSensorChanged(SensorEvent sensorEvent) {
+        if (isInSession) {
             Sensor sensor = sensorEvent.sensor;
             float[] values = sensorEvent.values;
             int value = -1;
@@ -313,41 +313,26 @@ public class FitnessActivity extends FragmentActivity implements
     }
 
     @Override
-    public void onAccuracyChanged(Sensor sensor, int i)
-    {
+    public void onAccuracyChanged(Sensor sensor, int i) {
 
     }
 
     @Override
-    public void onLocationChanged(Location location)
-    {
+    public void onLocationChanged(Location location) {
         curLocation = location;
-        if(isInSession)
-        {
+        if (isInSession) {
             double lat = location.getLatitude();
             double lng = location.getLongitude();
             mMap.moveCamera(CameraUpdateFactory.newLatLngZoom(new LatLng(lat, lng), 18));
 //            System.out.println("Lat-Lng: " + lat + "," + lng);
             tvLat.setText(String.valueOf(lat));
             tvLong.setText(String.valueOf(lng));
-            try {
-                if (rService != null)
-                {
-                    sessionLocation.add(new LatLng(lat, lng));
-                    rService.putData(lat, lng);
-                    System.out.println("rService.debugPrint() " + rService.debugPrint(lat, lng));
-                }
-
-            } catch (RemoteException e) {
-                e.printStackTrace();
-            }
-
+            sessionLocation.add(new LatLng(lat, lng));
             updatePath();
         }
     }
 
-    private void updatePath()
-    {
+    private void updatePath() {
         PolylineOptions polylineOptions = new PolylineOptions();
         polylineOptions.addAll(sessionLocation);
         polylineOptions.color(Color.GREEN);
@@ -356,19 +341,16 @@ public class FitnessActivity extends FragmentActivity implements
         mMap.addPolyline(polylineOptions);
     }
 
-    private void updateWorkoutSession(int steps)
-    {
+    private void updateWorkoutSession(int steps) {
         sessionDistance += steps * STEP_TO_KM;
 
-        if(tvDistance != null)
-        {
+        if (tvDistance != null) {
             String temp = decimalFormatter.format(sessionDistance) + " km";
             tvDistance.setText(temp);
         }
     }
 
-    private void updateDuration()
-    {
+    private void updateDuration() {
         curSecond += 1000;
         hms = String.format("%02d:%02d:%02d", TimeUnit.MILLISECONDS.toHours(curSecond),
                 TimeUnit.MILLISECONDS.toMinutes(curSecond) - TimeUnit.HOURS.toMinutes(TimeUnit.MILLISECONDS.toHours(curSecond)),
@@ -377,8 +359,6 @@ public class FitnessActivity extends FragmentActivity implements
         if (tvDuration != null)
             tvDuration.setText(hms);
     }
-
-
 
 
     class RemoteConnection implements ServiceConnection {
@@ -398,7 +378,6 @@ public class FitnessActivity extends FragmentActivity implements
     }
 
 
-
     @Override
     protected void onStart() {
         super.onStart();
@@ -406,34 +385,28 @@ public class FitnessActivity extends FragmentActivity implements
     }
 
     @Override
-    protected void onResume()
-    {
+    protected void onResume() {
         super.onResume();
 //        System.out.println("onResume Called");
         setCurrentStatus();
-        if(isInSession)
-        {
-            if(tvStart != null)
+        if (isInSession) {
+            if (tvStart != null)
                 tvStart.setText("Stop");
-        }
-        else
-        {
-            if(tvStart != null)
+        } else {
+            if (tvStart != null)
                 tvStart.setText("Start");
         }
 
     }
 
     @Override
-    protected void onStop()
-    {
+    protected void onStop() {
         super.onStop();
 
     }
 
     @Override
-    protected void onPause()
-    {
+    protected void onPause() {
         super.onPause();
         System.out.println("onPauseCalled");
     }
@@ -441,7 +414,7 @@ public class FitnessActivity extends FragmentActivity implements
     @Override
     protected void onDestroy() {
         super.onDestroy();
-        if(remoteConnection != null) {
+        if (remoteConnection != null) {
             unbindService(remoteConnection);
             remoteConnection = null;
         }
@@ -463,13 +436,12 @@ public class FitnessActivity extends FragmentActivity implements
         try {
             Toast.makeText(this, "Map is ready", Toast.LENGTH_SHORT).show();
             Location initLoc = ((LocationManager) getSystemService(LOCATION_SERVICE)).getLastKnownLocation(LocationManager.GPS_PROVIDER);
-            if(initLoc != null)
+            if (initLoc != null)
                 mMap.moveCamera(CameraUpdateFactory.newLatLngZoom(
                         new LatLng(initLoc.getLatitude(), initLoc.getLongitude()),
                         18));
             mMap.setMyLocationEnabled(true);
-        }catch(SecurityException e)
-        {
+        } catch (SecurityException e) {
             e.printStackTrace();
         }
     }
@@ -489,8 +461,7 @@ public class FitnessActivity extends FragmentActivity implements
 
     }
 
-    public void showProfileActivity(View view)
-    {
+    public void showProfileActivity(View view) {
         Intent intent = new Intent(this, ProfileActivity.class);
         startActivity(intent);
     }
@@ -510,7 +481,7 @@ public class FitnessActivity extends FragmentActivity implements
 
         if (mChart.getData() != null &&
                 mChart.getData().getDataSetCount() > 0) {
-            set1 = (LineDataSet)mChart.getData().getDataSetByIndex(0);
+            set1 = (LineDataSet) mChart.getData().getDataSetByIndex(0);
             set1.setValues(values);
             mChart.getData().notifyDataChanged();
             mChart.notifyDataSetChanged();
@@ -553,8 +524,7 @@ public class FitnessActivity extends FragmentActivity implements
         }
     }
 
-    private void setupChart()
-    {
+    private void setupChart() {
         mChart = (LineChart) findViewById(R.id.chart);
 
         //SETUP CHART
@@ -567,6 +537,8 @@ public class FitnessActivity extends FragmentActivity implements
 
         XAxis xAxis = mChart.getXAxis();
         xAxis.enableGridDashedLine(10f, 10f, 0f);
+        xAxis.setAxisMaximum(24f);
+        xAxis.setAxisMinimum(0f);
         //xAxis.setValueFormatter(new MyCustomXAxisValueFormatter());
         //xAxis.addLimitLine(llXAxis); // add x-axis limit line
 
@@ -605,8 +577,7 @@ public class FitnessActivity extends FragmentActivity implements
         setData(45, 100);
     }
 
-    private void initSession()
-    {
+    private void initSession() {
         sessionDistance = 0.0;
         avgMinKm = 0.0;
         maxMinKm = 0.0;
@@ -618,70 +589,84 @@ public class FitnessActivity extends FragmentActivity implements
         isInit = false;
         isInSession = true;
 
-        if(tvDistance != null)
-        {
+        if (tvDistance != null) {
             tvDistance.setText("0.000 km");
         }
-        if(tvDuration != null)
-        {
+        if (tvDuration != null) {
             tvDuration.setText("00:00:00");
         }
 
         curSecond = 0;
         durationUpdateCountDownTimer = new CountDownTimer(1000, 500) {
             @Override
-            public void onTick(long l)
-            {
+            public void onTick(long l) {
 
             }
 
             @Override
-            public void onFinish()
-            {
+            public void onFinish() {
                 updateDuration();
                 updateProfileActivity();
                 durationUpdateCountDownTimer.start();
             }
         };
         durationUpdateCountDownTimer.start();
+
+        startStoringData();
     }
 
-    private void endSesstion()
-    {
-        if(durationUpdateCountDownTimer != null)
-        {
+    private void endSesstion() {
+        if (durationUpdateCountDownTimer != null) {
             durationUpdateCountDownTimer.cancel();
         }
         isInSession = false;
+//        sessionDb.putData(new WorkoutSession(sessionDistance, curSecond, totalCaloBurnt));
+        ContentValues contentValues = new ContentValues();
+        contentValues.put(WorkoutSessionContentProvider.DISTANCE, sessionDistance);
+        contentValues.put(WorkoutSessionContentProvider.DURATION, curSecond);
+        contentValues.put(WorkoutSessionContentProvider.CALORIES, totalCaloBurnt);
+
+        Uri uri = getContentResolver().insert(
+                WorkoutSessionContentProvider.URI, contentValues);
+
+        Toast.makeText(this, uri.toString(), Toast.LENGTH_LONG).show();
+
+        // Retrieve student records
+        String URL = "content://com.tin.proj_fit.providers.WorkoutSessionContentProvider";
+
+        Uri workouts = Uri.parse(URL);
+        Cursor c = managedQuery(workouts, null, null, null, "_id");
+
+        if (c.moveToFirst()) {
+            do{
+                Toast.makeText(this,
+                        c.getString(c.getColumnIndex(WorkoutSessionContentProvider._ID)) +
+                                ", " +  c.getString(c.getColumnIndex( WorkoutSessionContentProvider.DISTANCE)) +
+                                ", " + c.getString(c.getColumnIndex( WorkoutSessionContentProvider.DURATION)), Toast.LENGTH_SHORT).show();
+            } while (c.moveToNext());
+        }
     }
 
-    private void setCurrentStatus()
-    {
-        if(tvDistance != null)
-        {
+    private void setCurrentStatus() {
+        if (tvDistance != null) {
             tvDistance.setText(decimalFormatter.format(sessionDistance) + " km");
         }
-        if(tvDuration != null)
-        {
+        if (tvDuration != null) {
             tvDuration.setText(hms);
         }
     }
 
-    private void updateProfileActivity()
-    {
-        if(ProfileActivity.tvAvgDistance != null)
-        {
+    private void updateProfileActivity() {
+        if (ProfileActivity.tvAvgDistance != null) {
             ProfileActivity.tvAvgDistance.setText(decimalFormatter.format(sessionDistance) + " km");
         }
 
-        if(ProfileActivity.tvAvgTime != null)
-        {
+        if (ProfileActivity.tvAvgTime != null) {
             ProfileActivity.tvAvgTime.setText(hms);
         }
     }
 
-    private void updateWorkoutDetail(int steps)
-    {
+    private void updateWorkoutDetail(int steps) {
         long tempCurTime = System.currentTimeMillis();
         long deltaTime = tempCurTime - curTime;
         curTime += deltaTime;
@@ -689,32 +674,71 @@ public class FitnessActivity extends FragmentActivity implements
 
         System.out.println("STEPS COUNTS LANDSCAPE: " + steps);
 
-        if(tempMinKm < minMinKm)
-        {
+        if (tempMinKm < minMinKm) {
             minMinKm = tempMinKm;
         }
 
-        if(tempMinKm > maxMinKm)
-        {
+        if (tempMinKm > maxMinKm) {
             maxMinKm = tempMinKm;
         }
         avgMinKm += tempMinKm;
         avgMinKm /= 2.0;
 
-        if(tvAvgMinKm != null)
-        {
+        if (tvAvgMinKm != null) {
             tvAvgMinKm.setText(decimalFormatter.format(avgMinKm));
         }
 
-        if(tvMinMinKm != null)
-        {
+        if (tvMinMinKm != null) {
             tvMinMinKm.setText(decimalFormatter.format(maxMinKm));
         }
 
-        if(tvMaxMinKm != null)
-        {
+        if (tvMaxMinKm != null) {
             tvMaxMinKm.setText(decimalFormatter.format(minMinKm));
         }
     }
 
+    private void startStoringData()
+    {
+        storingDataCountDownTimer = new CountDownTimer(STORING_DATA_INTERVAL, 1000) {
+            @Override
+            public void onTick(long l)
+            {
+                if(!isInSession)
+                {
+                    try {
+                        if (rService != null)
+                        {
+                            rService.putData(distanceToBeStored, durationToBeStored, caloToBeStored);
+                            System.out.println("rService.debugPrint() " + rService.debugPrint(distanceToBeStored, durationToBeStored, caloToBeStored));
+                        }
+                    } catch (RemoteException e) {
+                        e.printStackTrace();
+                    }
+                    storingDataCountDownTimer.cancel();
+                    storingDataCountDownTimer = null;
+                }
+            }
+
+            @Override
+            public void onFinish() {
+                try {
+                    if (rService != null) {
+                        rService.putData(distanceToBeStored, durationToBeStored, caloToBeStored);
+                        System.out.println("rService.debugPrint() " + rService.debugPrint(distanceToBeStored, durationToBeStored, caloToBeStored));
+                        Cursor cursor = db.getData();
+                        int cnt = 0;
+                        while (cursor.moveToNext())
+                            cnt++;
+                        System.out.println("Total Workout Data entries: " + cnt);
+                        storingDataCountDownTimer.start();
+                    }
+
+
+                } catch (RemoteException e) {
+                    e.printStackTrace();
+                }
+            }
+        };
+        storingDataCountDownTimer.start();
+    }
 }

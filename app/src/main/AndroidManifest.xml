@@ -38,11 +38,11 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
-
         <activity
             android:name=".activities.ProfileActivity"
             android:label="Profile"
-            android:parentActivityName=".activities.FitnessActivity" >
+            android:parentActivityName=".activities.FitnessActivity">
+
             <!-- Parent activity meta-data to support 4.0 and lower -->
             <meta-data
                 android:name="android.support.PARENT_ACTIVITY"
@@ -55,6 +55,13 @@
             android:exported="true"
             android:process=":anotherProc" />
 
+        <provider
+            android:name=".providers.WorkoutSessionContentProvider"
+            android:authorities="com.tin.proj_fit.providers.WorkoutSessionContentProvider"
+            android:enabled="true"
+            android:exported="true">
+
+        </provider>
     </application>
 
 </manifest>

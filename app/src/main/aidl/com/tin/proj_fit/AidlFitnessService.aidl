@@ -9,8 +9,8 @@ interface AidlFitnessService {
      * and return values in AIDL.
      */
 
-    void putData(double lat, double lng);
-    String debugPrint(double lat, double lng);
+    void putData(double distance, long duration, int calories);
+    String debugPrint(double distance, long duration, int calories);
     void basicTypes(int anInt, long aLong, boolean aBoolean, float aFloat,
             double aDouble, String aString);
 }

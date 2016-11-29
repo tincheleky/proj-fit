@@ -11,8 +11,10 @@ import android.support.annotation.Nullable;
 
 import com.tin.proj_fit.AidlFitnessService;
 import com.tin.proj_fit.activities.FitnessActivity;
+import com.tin.proj_fit.models.WorkoutSession;
 import com.tin.proj_fit.storage.LocationData;
 import com.tin.proj_fit.storage.LocationHistoryDbHelper;
+import com.tin.proj_fit.storage.WorkoutDataDbHelper;
 
 /**
  * Created by mbp on 11/19/16.
@@ -21,7 +23,7 @@ import com.tin.proj_fit.storage.LocationHistoryDbHelper;
 public class FitnessService extends Service
 {
 
-    LocationHistoryDbHelper db;
+    WorkoutDataDbHelper db;
     AidlFitnessService.Stub mBinder;
 
     public FitnessService()
@@ -35,25 +37,23 @@ public class FitnessService extends Service
         return mBinder;
     }
 
-
     @Override
     public void onCreate() {
         super.onCreate();
-        db = new LocationHistoryDbHelper(this);
+        db = new WorkoutDataDbHelper(this);
         mBinder = new AidlFitnessService.Stub() {
             @Override
-            public void putData(double lat, double lng) throws RemoteException {
-                System.out.println("Remote Service put data: " + lat + ", " + lng);
+            public void putData(double distance, long duration, int calories) throws RemoteException {
+                System.out.println("Remote Service put data: " + distance + ", " + duration + ", " + calories);
                 if(db != null) {
-                    FitnessActivity.db.putData(new LocationData(lat, lng, "time"));
+                    db.putData(new WorkoutSession(distance, duration, calories));
                 }
 
             }
             @Override
-            public String debugPrint(double lat, double lng)
+            public String debugPrint(double distance, long duration, int calories)
             {
-                System.out.println("Get Called " + lat + lng);
-                return "Get Called " + lat + lng;
+                return "Get Called " + distance + ", " + duration + ", " + calories;
             }
 
             @Override
