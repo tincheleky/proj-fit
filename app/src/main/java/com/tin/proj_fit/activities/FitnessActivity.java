@@ -409,17 +409,17 @@ public class FitnessActivity extends FragmentActivity implements
     protected void onResume()
     {
         super.onResume();
-        System.out.println("onResume Called");
-        Toast.makeText(this, "onResume", Toast.LENGTH_SHORT).show();
+//        System.out.println("onResume Called");
         setCurrentStatus();
         if(isInSession)
         {
-            tvStart.setText("Stop");
-            System.out.println("REGISTER SENSOR");
+            if(tvStart != null)
+                tvStart.setText("Stop");
         }
         else
         {
-            tvStart.setText("Start");
+            if(tvStart != null)
+                tvStart.setText("Start");
         }
 
     }
