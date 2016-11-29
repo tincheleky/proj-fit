@@ -21,13 +21,17 @@
         android:weightSum="100">
 
         <EditText
+            android:id="@+id/user_name"
             android:layout_width="0dp"
             android:layout_height="match_parent"
             android:layout_weight="60"
             android:hint="Name"
             android:textSize="20sp"
             android:layout_gravity="center"
-            android:gravity="center"/>
+            android:gravity="center"
+            android:imeOptions="actionDone"
+            android:inputType="textPersonName"
+            android:lines="1"/>
 
         <ImageView
             android:layout_width="0dp"
@@ -45,7 +49,7 @@
         android:weightSum="100">
 
         <TextView
-            android:layout_width="wrap_content"
+            android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:text="Gender: "
             android:layout_gravity="center"
@@ -53,18 +57,23 @@
             android:textSize="20sp"
             android:gravity="center"/>
 
-        <TextView
-            android:layout_width="wrap_content"
+        <AutoCompleteTextView
+            android:id="@+id/user_gender"
+            android:layout_width="0dp"
             android:layout_height="wrap_content"
-            android:text="holder"
+            android:text="Male"
+            android:completionThreshold="1"
             android:layout_gravity="center"
             android:textSize="20sp"
             android:gravity="center"
             android:layout_weight="25"
+            android:lines="1"
+            android:imeOptions="actionDone"
+            android:inputType="textPersonName"
             android:background="@android:color/darker_gray"/>
 
         <TextView
-            android:layout_width="wrap_content"
+            android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:text="Weight: "
             android:layout_gravity="center"
@@ -74,13 +83,15 @@
 
         <EditText
             android:id="@+id/user_weight"
-            android:layout_width="wrap_content"
+            android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:hint="180 lbs"
             android:layout_gravity="center"
+            android:inputType="number"
             android:textSize="20sp"
             android:gravity="center"
             android:layout_weight="25"
+            android:imeOptions="actionDone"
             android:background="@android:color/darker_gray"/>
 
 

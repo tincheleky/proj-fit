@@ -46,6 +46,7 @@ import com.google.android.gms.maps.OnMapReadyCallback;
 import com.google.android.gms.maps.SupportMapFragment;
 import com.google.android.gms.maps.model.LatLng;
 import com.google.android.gms.maps.model.PolylineOptions;
+import com.google.android.gms.vision.text.Text;
 import com.tin.proj_fit.AidlFitnessService;
 import com.tin.proj_fit.R;
 import com.tin.proj_fit.models.SensorsHelper;
@@ -63,8 +64,8 @@ public class FitnessActivity extends FragmentActivity implements
         OnMapReadyCallback,
         LocationListener,
         SensorEventListener{
-    public static User user;
     public static final double STEP_TO_KM = 0.000762;
+    public static final String PREFERENCE = "PREFERENCE";
 
     private GoogleMap mMap;
     private FusedLocationProviderApi fusedLocationProviderApi = LocationServices.FusedLocationApi;
@@ -76,6 +77,9 @@ public class FitnessActivity extends FragmentActivity implements
     public static TextView tvDistance;
     public static TextView tvDuration;
     public static TextView tvStepCounter;
+    public static TextView tvAvgMinKm;
+    public static TextView tvMaxMinKm;
+    public static TextView tvMinMinKm;
     public static LineChart mChart;
 
     private TextView tvRS;
@@ -94,6 +98,7 @@ public class FitnessActivity extends FragmentActivity implements
     static double sessionDistance;
     static long curSecond = 0;
     static ArrayList<LatLng> sessionLocation;
+    static boolean isLandscape = false;
     SharedPreferences sharedPreferences;
 
     static SensorManager sensorManager;
@@ -106,6 +111,15 @@ public class FitnessActivity extends FragmentActivity implements
     static CountDownTimer durationUpdateCountDownTimer;
     static Location curLocation;
 
+    static double maxMinKm;
+    static double minMinKm;
+    static double avgMinKm;
+    static double curMinKm;
+    static long initTime;
+    static long curTime;
+    public static User user;
+
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -115,10 +129,21 @@ public class FitnessActivity extends FragmentActivity implements
         System.out.println("onCreate called");
 
         db = new LocationHistoryDbHelper(this);
+        sharedPreferences = getSharedPreferences(PREFERENCE, MODE_PRIVATE);
+
+        user = new User();
+        user.setUserName(sharedPreferences.getString("name", ""));
+        user.setGender(sharedPreferences.getString("gender", ""));
+        user.setWeight(sharedPreferences.getInt("weight", 0));
+
         if(getResources().getConfiguration().orientation == Configuration.ORIENTATION_LANDSCAPE)
         {
             Toast.makeText(this, "Landscape", Toast.LENGTH_SHORT).show();
             setupChart();
+            tvAvgMinKm = (TextView) findViewById(R.id.avg_min_km_display);
+            tvMaxMinKm = (TextView) findViewById(R.id.max_min_km_display);
+            tvMinMinKm = (TextView) findViewById(R.id.min_min_km_display);
+            isLandscape = true;
         }
         else
         {
@@ -127,6 +152,7 @@ public class FitnessActivity extends FragmentActivity implements
             SupportMapFragment mapFragment = (SupportMapFragment) getSupportFragmentManager()
                     .findFragmentById(R.id.map);
             mapFragment.getMapAsync(this);
+            isLandscape = false;
 
             if(locationManager == null)
                 locationManager = (LocationManager) getSystemService(LOCATION_SERVICE);
@@ -273,7 +299,8 @@ public class FitnessActivity extends FragmentActivity implements
                 } else {
                     value = (int) values[0] - curStepCounts;
                     curStepCounts += value;
-                    updateDistance(value);
+                    updateWorkoutDetail(value);
+                    updateWorkoutSession(value);
                 }
 
             }
@@ -329,7 +356,7 @@ public class FitnessActivity extends FragmentActivity implements
         mMap.addPolyline(polylineOptions);
     }
 
-    private void updateDistance(int steps)
+    private void updateWorkoutSession(int steps)
     {
         sessionDistance += steps * STEP_TO_KM;
 
@@ -389,12 +416,6 @@ public class FitnessActivity extends FragmentActivity implements
         {
             tvStart.setText("Stop");
             System.out.println("REGISTER SENSOR");
-            //Get step sensor
-//            sensorManager = (SensorManager) getSystemService(SENSOR_SERVICE);
-//            stepCounterSensor = sensorManager.getDefaultSensor(Sensor.TYPE_STEP_COUNTER);
-//
-//            //Register sensor:
-//            sensorManager.registerListener(thisActivity, stepCounterSensor, SensorManager.SENSOR_DELAY_FASTEST);
         }
         else
         {
@@ -415,18 +436,6 @@ public class FitnessActivity extends FragmentActivity implements
     {
         super.onPause();
         System.out.println("onPauseCalled");
-
-//        if(isInSession)
-//        {
-//            System.out.println("UNREGISTER SENSOR");
-//            sensorManager.unregisterListener(this, stepCounterSensor);
-//        }
-//        else
-//        {
-//
-//        }
-
-
     }
 
     @Override
@@ -599,8 +608,16 @@ public class FitnessActivity extends FragmentActivity implements
     private void initSession()
     {
         sessionDistance = 0.0;
+        avgMinKm = 0.0;
+        maxMinKm = 0.0;
+        minMinKm = 9999.0;
+        curMinKm = 0.0;
+        initTime = System.currentTimeMillis();
+        curTime = initTime;
+
         isInit = false;
         isInSession = true;
+
         if(tvDistance != null)
         {
             tvDistance.setText("0.000 km");
@@ -609,6 +626,7 @@ public class FitnessActivity extends FragmentActivity implements
         {
             tvDuration.setText("00:00:00");
         }
+
         curSecond = 0;
         durationUpdateCountDownTimer = new CountDownTimer(1000, 500) {
             @Override
@@ -656,9 +674,46 @@ public class FitnessActivity extends FragmentActivity implements
             ProfileActivity.tvAvgDistance.setText(decimalFormatter.format(sessionDistance) + " km");
         }
 
-        if(ProfileActivity.tvAllTimeTime != null)
+        if(ProfileActivity.tvAvgTime != null)
         {
-            ProfileActivity.tvAllTimeTime.setText(hms);
+            ProfileActivity.tvAvgTime.setText(hms);
+        }
+    }
+
+    private void updateWorkoutDetail(int steps)
+    {
+        long tempCurTime = System.currentTimeMillis();
+        long deltaTime = tempCurTime - curTime;
+        curTime += deltaTime;
+        double tempMinKm = (deltaTime / 60000.0) / (steps * STEP_TO_KM);
+
+        System.out.println("STEPS COUNTS LANDSCAPE: " + steps);
+
+        if(tempMinKm < minMinKm)
+        {
+            minMinKm = tempMinKm;
+        }
+
+        if(tempMinKm > maxMinKm)
+        {
+            maxMinKm = tempMinKm;
+        }
+        avgMinKm += tempMinKm;
+        avgMinKm /= 2.0;
+
+        if(tvAvgMinKm != null)
+        {
+            tvAvgMinKm.setText(decimalFormatter.format(avgMinKm));
+        }
+
+        if(tvMinMinKm != null)
+        {
+            tvMinMinKm.setText(decimalFormatter.format(maxMinKm));
+        }
+
+        if(tvMaxMinKm != null)
+        {
+            tvMaxMinKm.setText(decimalFormatter.format(minMinKm));
         }
     }
 
